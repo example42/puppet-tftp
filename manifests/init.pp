@@ -265,7 +265,7 @@ class tftp (
   }
 
   ### We require Xinetd (also on Debian/Ubuntu)
-  require Class['xinetd']
+  # require Class['xinetd']
 
   ### Managed resources
   package { 'tftp':
@@ -287,7 +287,7 @@ class tftp (
 
   file { 'tftp.data':
     ensure  => directory,
-    path    => $tftp::config_dir,
+    path    => $tftp::data_dir,
     mode    => '0755',
     owner   => $tftp::config_file_owner,
     group   => $tftp::config_file_group,

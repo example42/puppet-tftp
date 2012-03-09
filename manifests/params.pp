@@ -19,6 +19,7 @@ class tftp::params {
   $package = $::operatingsystem ? {
     /(?i:Debian|Ubuntu|Mint)/              => 'tftpd',
     /(?i:RedHat|Centos|Scientific|Fedora)/ => 'tftp-server',
+    default                                => 'tftpd',
   }
 
   $process = $::operatingsystem ? {
@@ -56,6 +57,7 @@ class tftp::params {
   $data_dir = $::operatingsystem ? {
     /(?i:Debian|Ubuntu|Mint)/              => '/srv/tftp',
     /(?i:RedHat|Centos|Scientific|Fedora)/ => '/tftproot',
+    default                                => '/tftproot',
   }
 
   $log_dir = $::operatingsystem ? {
@@ -64,7 +66,7 @@ class tftp::params {
 
   $log_file = $::operatingsystem ? {
     /(?i:Debian|Ubuntu|Mint)/              => '/var/log/syslog',
-    /(?i:RedHat|Centos|Scientific|Fedora)/ => '/var/log/messages',
+    default                                => '/var/log/messages',
   }
 
   $port = '69'
