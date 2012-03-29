@@ -326,8 +326,8 @@ class tftp (
   ### Firewall management, if enabled ( firewall => true )
   if $tftp::bool_firewall == true {
     firewall { "tftp_${tftp::protocol}_${tftp::port}":
-      source      => $tftp::firewall_source,
-      destination => $tftp::firewall_destination,
+      source      => $tftp::firewall_src,
+      destination => $tftp::firewall_dst,
       protocol    => $tftp::protocol,
       port        => $tftp::port,
       action      => 'allow',
