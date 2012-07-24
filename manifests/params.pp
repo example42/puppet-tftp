@@ -75,8 +75,6 @@ class tftp::params {
   # General Settings
   $my_class = ''
   $source = ''
-  $source_dir = ''
-  $source_dir_purge = ''
   $template = 'tftp/xinetd.tftp.erb'
   $options = ''
   $absent = false
