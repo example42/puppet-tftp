@@ -14,12 +14,27 @@
 #
 class tftp::params {
 
+  # Template for init file
+  $file_init_template = $::operatingsystem ? {
+    /(?i:Debian|Ubuntu|Mint)/ => 'tftp/init-debian.erb',
+    default                   => '',
+  }
+
   ### Application related parameters
 
   $package = $::operatingsystem ? {
-    /(?i:Debian|Ubuntu|Mint)/              => 'tftpd',
+    /(?i:Debian|Ubuntu|Mint)/              => 'tftpd-hpa',
     /(?i:RedHat|Centos|Scientific|Fedora)/ => 'tftp-server',
     default                                => 'tftpd',
+  }
+
+  $service = $::operatingsystem ? {
+    /(?:Ubuntu|Debian|Mint)/ => 'tftpd-hpa',
+    default                  => 'tftpd',
+  }
+
+  $service_status = $::operatingsystem ? {
+    default => true,
   }
 
   $process = $::operatingsystem ? {
@@ -54,6 +69,16 @@ class tftp::params {
     default => 'root',
   }
 
+  $config_file_init = $::operatingsystem ? {
+    /(?i:Debian|Ubuntu|Mint)/ => '/etc/default/tftpd-hpa',
+    default                   => '/etc/sysconfig/tftpd',
+  }
+
+  $pid_file = $::operatingsystem ? {
+    /(?i:Debian|Ubuntu|Mint)/ => '/var/run/tftpd-hpa.pid',
+    default                   => '/var/run/tftpd.pid',
+  }
+
   $data_dir = $::operatingsystem ? {
     /(?i:Debian|Ubuntu|Mint)/              => '/srv/tftp',
     /(?i:RedHat|Centos|Scientific|Fedora)/ => '/tftproot',
@@ -80,6 +105,7 @@ class tftp::params {
   $absent = false
   $disable = false
   $disableboot = false
+  $startup_mode = 'xinetd'
 
   ### General module variables that can have a site or per module default
   $monitor = false

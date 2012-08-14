@@ -1,0 +1,7 @@
+# File managed by puppet
+
+TFTP_USERNAME="tftp"
+TFTP_DIRECTORY="<%= scope.lookupvar('tftp::data_dir') %>"
+TFTP_ADDRESS="0.0.0.0:<%= scope.lookupvar('tftp::port') %>"
+TFTP_OPTIONS="--secure"
+
