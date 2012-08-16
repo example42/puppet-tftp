@@ -246,7 +246,9 @@ class tftp (
     default => 'present',
   }
 
-  if $tftp::bool_absent == true or $tftp::bool_disable == true or $tftp::bool_disableboot == true {
+  if $tftp::bool_absent == true
+  or $tftp::bool_disable == true
+  or $tftp::bool_disableboot == true {
     $manage_monitor = false
   } else {
     $manage_monitor = true
