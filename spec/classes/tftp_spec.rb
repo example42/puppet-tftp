@@ -11,6 +11,15 @@ describe 'tftp' do
     it { should contain_file('tftp.conf').with_ensure('present') }
   end
 
+  describe 'Test standard installation - mode standalone' do
+    let(:params) { { :startup_mode => 'standalone' } }
+
+    it { should contain_package('tftp').with_ensure('present') }
+    it { should contain_file('tftp.init').with_ensure('present') }
+    it { should contain_service('tftp').with_ensure('running') }
+    it { should contain_service('tftp').with_enable(true) }
+  end
+
   describe 'Test standard installation with monitoring and firewalling' do
     let(:params) { {:monitor => true , :firewall => true, :port => '42', :protocol => 'tcp' } }
 
@@ -22,10 +31,22 @@ describe 'tftp' do
     end
   end
 
+  describe 'Test monitoring with UDP protocol' do
+    let(:params) { {:monitor => true , :firewall => true, :port => '42', :protocol => 'udp' } }
+
+    it { should_not contain_monitor__port('tftp_udp_42') }
+  end
+
+  describe 'Test monitor with standalone mode' do
+    let(:params) { {:monitor => true, :startup_mode => 'standalone' } }
+
+    it { should contain_monitor__process('tftp_process') }
+  end
+
   describe 'Test decommissioning - absent' do
     let(:params) { {:absent => true, :monitor => true , :firewall => true, :port => '42', :protocol => 'tcp'  } }
 
-    it 'should remove Package[tftp]' do should contain_package('tftp').with_ensure('absent') end 
+    it 'should remove Package[tftp]' do should contain_package('tftp').with_ensure('absent') end
     it 'should remove tftp configuration file' do should contain_file('tftp.conf').with_ensure('absent') end
     it 'should remove a firewall rule' do
       content = catalogue.resource('firewall', 'tftp_tcp_42').send(:parameters)[:enable]
@@ -46,14 +67,38 @@ describe 'tftp' do
 
   describe 'Test decommissioning - disableboot' do
     let(:params) { {:disableboot => true, :monitor => true , :firewall => true, :port => '42', :protocol => 'tcp' } }
-  
+
     it { should contain_package('tftp').with_ensure('present') }
     it { should contain_file('tftp.conf').with_ensure('present') }
     it 'should keep a firewall rule' do
       content = catalogue.resource('firewall', 'tftp_tcp_42').send(:parameters)[:enable]
       content.should == true
     end
-  end 
+  end
+
+  describe 'Test decommissioning with standalone mode - disable' do
+    let(:params) { {:disable =>  true, :monitor => true , :firewall => true, :port => '42', :protocol => 'tcp', :startup_mode => 'standalone'} }
+
+    it { should contain_package('tftp').with_ensure('present') }
+    it { should contain_file('tftp.init').with_ensure('present') }
+    it { should contain_service('tftp').with_ensure('stopped') }
+    it 'should remove a firewall rule' do
+      content = catalogue.resource('firewall', 'tftp_tcp_42').send(:parameters)[:enable]
+      content.should == false
+    end
+  end
+
+  describe 'Test decommissioning with standalone mode - disableboot' do
+    let(:params) { {:disableboot => true, :monitor => true , :firewall => true, :port => '42', :protocol => 'tcp', :startup_mode => 'standalone' } }
+
+    it { should contain_package('tftp').with_ensure('present') }
+    it { should contain_file('tftp.init').with_ensure('present') }
+    it { should contain_service('tftp').with_enable(false) }
+    it 'should keep a firewall rule' do
+      content = catalogue.resource('firewall', 'tftp_tcp_42').send(:parameters)[:enable]
+      content.should == true
+    end
+  end
 
   describe 'Test customizations - template' do
     let(:params) { {:template => "tftp/spec.erb" , :options => { 'opt_a' => 'value_a' } } }
@@ -64,6 +109,21 @@ describe 'tftp' do
     end
     it 'should generate a template that uses custom options' do
       content = catalogue.resource('file', 'tftp.conf').send(:parameters)[:content]
+      content.should match "value_a"
+    end
+
+  end
+
+  describe 'Test customizations - init script template' do
+    let(:params) { {:startup_mode => 'standalone', :file_init_template => "tftp/spec.erb" , :options => { 'opt_a' => 'value_a' } } }
+
+
+    it 'should generate a valid template' do
+      content = catalogue.resource('file', 'tftp.init').send(:parameters)[:content]
+      content.should match "fqdn: rspec.example42.com"
+    end
+    it 'should generate a template that uses custom options' do
+      content = catalogue.resource('file', 'tftp.init').send(:parameters)[:content]
       content.should match "value_a"
     end
 
@@ -102,7 +162,7 @@ describe 'tftp' do
       content = catalogue.resource('firewall', 'tftp_tcp_42').send(:parameters)[:tool]
       content.should == "iptables"
     end
-    it 'should generate puppi resources ' do 
+    it 'should generate puppi resources ' do
       content = catalogue.resource('puppi::ze', 'tftp').send(:parameters)[:ensure]
       content.should == "present"
     end

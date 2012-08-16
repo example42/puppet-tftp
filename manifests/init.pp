@@ -30,6 +30,11 @@
 #   An hash of custom options to be used in templates for arbitrary settings.
 #   Can be defined also by the (top scope) variable $tftp_options
 #
+# [*service_autorestart*]
+#   Automatically restarts the apache service when there is a change in
+#   configuration files. Default: true, Set to false if you don't want to
+#   automatically restart the service.
+#
 # [*absent*]
 #   Set to 'true' to remove package(s) installed by module
 #   Can be defined also by the (top scope) variable $tftp_absent
@@ -180,6 +185,7 @@
 class tftp (
   $my_class            = params_lookup( 'my_class' ),
   $template            = params_lookup( 'template' ),
+  $service_autorestart = params_lookup( 'service_autorestart' , 'global' ),
   $options             = params_lookup( 'options' ),
   $absent              = params_lookup( 'absent' ),
   $disable             = params_lookup( 'disable' ),
@@ -215,6 +221,7 @@ class tftp (
   $protocol            = params_lookup( 'protocol' )
   ) inherits tftp::params {
 
+  $bool_service_autorestart=any2bool($service_autorestart)
   $bool_absent=any2bool($absent)
   $bool_disable=any2bool($disable)
   $bool_disableboot=any2bool($disableboot)
@@ -240,6 +247,20 @@ class tftp (
       },
     },
   }
+
+  $manage_service_ensure = $tftp::bool_disable ? {
+    true    => 'stopped',
+    default =>  $tftp::bool_absent ? {
+      true    => 'stopped',
+      default => 'running',
+    },
+  }
+
+  $manage_service_autorestart = $tftp::bool_service_autorestart ? {
+    true    => 'Service[tftp]',
+    false   => undef,
+  }
+
 
   $manage_file = $tftp::bool_absent ? {
     true    => 'absent',
@@ -306,6 +327,7 @@ class tftp (
       owner   => $tftp::config_file_owner,
       group   => $tftp::config_file_group,
       require => Package['tftp'],
+      notify  => $apache::manage_service_autorestart,
       content => $tftp::manage_init_file_content,
       replace => $tftp::manage_file_replace,
       audit   => $tftp::manage_audit,
@@ -354,12 +376,14 @@ class tftp (
 
   ### Service monitoring, if enabled ( monitor => true )
   if $tftp::bool_monitor == true {
-    monitor::port { "tftp_${tftp::protocol}_${tftp::port}":
-      protocol => $tftp::protocol,
-      port     => $tftp::port,
-      target   => $tftp::monitor_target,
-      tool     => $tftp::monitor_tool,
-      enable   => $tftp::manage_monitor,
+    if $tftp::protocol != 'udp' {
+      monitor::port { "tftp_${tftp::protocol}_${tftp::port}":
+        protocol => $tftp::protocol,
+        port     => $tftp::port,
+        target   => $tftp::monitor_target,
+        tool     => $tftp::monitor_tool,
+        enable   => $tftp::manage_monitor,
+      }
     }
     if $tftp::startup_mode == 'standalone' {
       monitor::process { 'tftp_process':

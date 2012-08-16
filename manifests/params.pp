@@ -102,6 +102,7 @@ class tftp::params {
   $source = ''
   $template = 'tftp/xinetd.tftp.erb'
   $options = ''
+  $service_autorestart = true
   $absent = false
   $disable = false
   $disableboot = false
