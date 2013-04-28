@@ -335,6 +335,7 @@ class tftp (
     }
 
   } else {
+    include ::xinetd
 
     file { 'tftp.conf':
       ensure  => $tftp::manage_file,
