@@ -33,7 +33,7 @@ class tftp::params {
     default                  => 'tftpd',
   }
 
-  $service_status = $::operatingsystem ? {
+  $service_hasstatus = $::operatingsystem ? {
     default => true,
   }
 

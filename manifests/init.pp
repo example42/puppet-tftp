@@ -185,7 +185,9 @@
 class tftp (
   $my_class            = params_lookup( 'my_class' ),
   $template            = params_lookup( 'template' ),
+  $service             = params_lookup( 'service' ),
   $service_autorestart = params_lookup( 'service_autorestart' , 'global' ),
+  $service_hasstatus   = params_lookup( 'service_hasstatus' ),
   $options             = params_lookup( 'options' ),
   $absent              = params_lookup( 'absent' ),
   $disable             = params_lookup( 'disable' ),
@@ -261,7 +263,6 @@ class tftp (
     false   => undef,
   }
 
-
   $manage_file = $tftp::bool_absent ? {
     true    => 'absent',
     default => 'present',
@@ -315,7 +316,7 @@ class tftp (
       ensure     => $tftp::manage_service_ensure,
       name       => $tftp::service,
       enable     => $tftp::manage_service_enable,
-      hasstatus  => $tftp::service_status,
+      hasstatus  => $tftp::service_hasstatus,
       pattern    => $tftp::process,
       require    => Package['tftp'],
     }
