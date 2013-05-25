@@ -328,7 +328,7 @@ class tftp (
       owner   => $tftp::config_file_owner,
       group   => $tftp::config_file_group,
       require => Package['tftp'],
-      notify  => $apache::manage_service_autorestart,
+      notify  => $tftp::manage_service_autorestart,
       content => $tftp::manage_init_file_content,
       replace => $tftp::manage_file_replace,
       audit   => $tftp::manage_audit,
