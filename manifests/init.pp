@@ -2,8 +2,15 @@
 #
 # This is the main tftp class
 #
-#
 # == Parameters
+#
+# [*file_init_template*]
+#   Template file used for init file. Only used when [*startup_mode*] is
+#   'standalone'.
+#
+# [*startup_mode*]
+#   Either you start tftp process with 'xinetd' or in 'standalone' mode.
+#   Avaliable values are 'xinetd' (default) or 'standalone'.
 #
 # Standard class parameters
 # Define the general class behaviour and customizations
@@ -22,6 +29,11 @@
 # [*options*]
 #   An hash of custom options to be used in templates for arbitrary settings.
 #   Can be defined also by the (top scope) variable $tftp_options
+#
+# [*service_autorestart*]
+#   Automatically restarts the apache service when there is a change in
+#   configuration files. Default: true, Set to false if you don't want to
+#   automatically restart the service.
 #
 # [*absent*]
 #   Set to 'true' to remove package(s) installed by module
@@ -173,10 +185,14 @@
 class tftp (
   $my_class            = params_lookup( 'my_class' ),
   $template            = params_lookup( 'template' ),
+  $service             = params_lookup( 'service' ),
+  $service_autorestart = params_lookup( 'service_autorestart' , 'global' ),
+  $service_hasstatus   = params_lookup( 'service_hasstatus' ),
   $options             = params_lookup( 'options' ),
   $absent              = params_lookup( 'absent' ),
   $disable             = params_lookup( 'disable' ),
   $disableboot         = params_lookup( 'disableboot' ),
+  $startup_mode        = params_lookup( 'startup_mode' ),
   $monitor             = params_lookup( 'monitor' , 'global' ),
   $monitor_tool        = params_lookup( 'monitor_tool' , 'global' ),
   $monitor_target      = params_lookup( 'monitor_target' , 'global' ),
@@ -198,6 +214,7 @@ class tftp (
   $config_file_owner   = params_lookup( 'config_file_owner' ),
   $config_file_group   = params_lookup( 'config_file_group' ),
   $config_file_init    = params_lookup( 'config_file_init' ),
+  $file_init_template  = params_lookup( 'file_init_template' ),
   $pid_file            = params_lookup( 'pid_file' ),
   $data_dir            = params_lookup( 'data_dir' ),
   $log_dir             = params_lookup( 'log_dir' ),
@@ -206,6 +223,7 @@ class tftp (
   $protocol            = params_lookup( 'protocol' )
   ) inherits tftp::params {
 
+  $bool_service_autorestart=any2bool($service_autorestart)
   $bool_absent=any2bool($absent)
   $bool_disable=any2bool($disable)
   $bool_disableboot=any2bool($disableboot)
@@ -232,12 +250,27 @@ class tftp (
     },
   }
 
+  $manage_service_ensure = $tftp::bool_disable ? {
+    true    => 'stopped',
+    default =>  $tftp::bool_absent ? {
+      true    => 'stopped',
+      default => 'running',
+    },
+  }
+
+  $manage_service_autorestart = $tftp::bool_service_autorestart ? {
+    true    => 'Service[tftp]',
+    false   => undef,
+  }
+
   $manage_file = $tftp::bool_absent ? {
     true    => 'absent',
     default => 'present',
   }
 
-  if $tftp::bool_absent == true or $tftp::bool_disable == true or $tftp::bool_disableboot == true {
+  if $tftp::bool_absent == true
+  or $tftp::bool_disable == true
+  or $tftp::bool_disableboot == true {
     $manage_monitor = false
   } else {
     $manage_monitor = true
@@ -264,8 +297,10 @@ class tftp (
     default   => template($tftp::template),
   }
 
-  ### We require Xinetd (also on Debian/Ubuntu)
-  # require Class['xinetd']
+  $manage_init_file_content = $tftp::file_init_template ? {
+    ''      => undef,
+    default => template($tftp::file_init_template),
+  }
 
   ### Managed resources
   package { 'tftp':
@@ -273,16 +308,46 @@ class tftp (
     name   => $tftp::package,
   }
 
-  file { 'tftp.conf':
-    ensure  => $tftp::manage_file,
-    path    => $tftp::config_file,
-    mode    => $tftp::config_file_mode,
-    owner   => $tftp::config_file_owner,
-    group   => $tftp::config_file_group,
-    require => Package['tftp'],
-    content => $tftp::manage_file_content,
-    replace => $tftp::manage_file_replace,
-    audit   => $tftp::manage_audit,
+  ### We require Xinetd (also on Debian/Ubuntu)
+  # require Class['xinetd']
+  if $tftp::startup_mode == 'standalone' {
+
+    service { 'tftp':
+      ensure     => $tftp::manage_service_ensure,
+      name       => $tftp::service,
+      enable     => $tftp::manage_service_enable,
+      hasstatus  => $tftp::service_hasstatus,
+      pattern    => $tftp::process,
+      require    => Package['tftp'],
+    }
+
+    file { 'tftp.init':
+      ensure  => $tftp::manage_file,
+      path    => $tftp::config_file_init,
+      mode    => $tftp::config_file_mode,
+      owner   => $tftp::config_file_owner,
+      group   => $tftp::config_file_group,
+      require => Package['tftp'],
+      notify  => $tftp::manage_service_autorestart,
+      content => $tftp::manage_init_file_content,
+      replace => $tftp::manage_file_replace,
+      audit   => $tftp::manage_audit,
+    }
+
+  } else {
+    include ::xinetd
+
+    file { 'tftp.conf':
+      ensure  => $tftp::manage_file,
+      path    => $tftp::config_file,
+      mode    => $tftp::config_file_mode,
+      owner   => $tftp::config_file_owner,
+      group   => $tftp::config_file_group,
+      require => Package['tftp'],
+      content => $tftp::manage_file_content,
+      replace => $tftp::manage_file_replace,
+      audit   => $tftp::manage_audit,
+    }
   }
 
   file { 'tftp.data':
@@ -313,12 +378,25 @@ class tftp (
 
   ### Service monitoring, if enabled ( monitor => true )
   if $tftp::bool_monitor == true {
-    monitor::port { "tftp_${tftp::protocol}_${tftp::port}":
-      protocol => $tftp::protocol,
-      port     => $tftp::port,
-      target   => $tftp::monitor_target,
-      tool     => $tftp::monitor_tool,
-      enable   => $tftp::manage_monitor,
+    if $tftp::protocol != 'udp' {
+      monitor::port { "tftp_${tftp::protocol}_${tftp::port}":
+        protocol => $tftp::protocol,
+        port     => $tftp::port,
+        target   => $tftp::monitor_target,
+        tool     => $tftp::monitor_tool,
+        enable   => $tftp::manage_monitor,
+      }
+    }
+    if $tftp::startup_mode == 'standalone' {
+      monitor::process { 'tftp_process':
+        process  => $tftp::process,
+        service  => $tftp::service,
+        pidfile  => $tftp::pid_file,
+        user     => $tftp::process_user,
+        argument => $tftp::process_args,
+        tool     => $tftp::monitor_tool,
+        enable   => $tftp::manage_monitor,
+      }
     }
   }
 
