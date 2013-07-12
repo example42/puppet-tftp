@@ -24,7 +24,7 @@ class tftp::params {
 
   $package = $::operatingsystem ? {
     /(?i:Debian|Ubuntu|Mint)/              => 'tftpd-hpa',
-    /(?i:RedHat|Centos|Scientific|Fedora)/ => 'tftp-server',
+    /(?i:RedHat|Centos|Scientific|Fedora|OracleLinux)/ => 'tftp-server',
     default                                => 'tftpd',
   }
 
