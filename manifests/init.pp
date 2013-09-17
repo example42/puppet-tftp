@@ -270,6 +270,7 @@ class tftp (
 
   if $tftp::bool_absent == true
   or $tftp::bool_disable == true
+  or $tftp::bool_monitor == false
   or $tftp::bool_disableboot == true {
     $manage_monitor = false
   } else {
@@ -377,7 +378,7 @@ class tftp (
 
 
   ### Service monitoring, if enabled ( monitor => true )
-  if $tftp::bool_monitor == true {
+  if $tftp::monitor_tool {
     if $tftp::protocol != 'udp' {
       monitor::port { "tftp_${tftp::protocol}_${tftp::port}":
         protocol => $tftp::protocol,
